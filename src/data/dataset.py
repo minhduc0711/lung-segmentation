@@ -1,46 +1,13 @@
-import time
-import functools
 import glob
 import os
 import pickle
-from pathlib import Path
 
 import numpy as np
-import SimpleITK as sitk
 import pydicom
 from pydicom.pixel_data_handlers.util import apply_modality_lut
-import nibabel as nib
 from tqdm import tqdm
 
-import torch
-import torch.nn.functional as F
 from torch.utils.data import Dataset
-
-
-def process_NSCLC_seg_masks():
-    """
-    Preprocess segmentation masks and then store each slice
-    in an individual file to speed up random data access
-    """
-    src_dir = Path("data/raw/Thoracic_Cavities/")
-    dest_dir = Path("data/interim/NSCLC_ground_truths")
-
-    ct_ids = sorted(os.listdir(src_dir))
-    for ct_id in tqdm(ct_ids, desc="CT scan"):
-        ct_dir = dest_dir / ct_id
-        ct_dir.mkdir(parents=True, exist_ok=True)
-        seg_path = glob.glob(f"{str(src_dir)}/{ct_id}/*.nii.gz")[0]
-        seg_file = nib.load(seg_path)
-
-        seg_masks = np.array(seg_file.dataobj, dtype=np.int64)
-        # match mask to CT image orientation
-        seg_masks = np.rot90(seg_masks, k=1)
-        # remove left, right lung information
-        seg_masks[seg_masks > 0] = 1
-
-        # Save each slice in an individual file
-        for slice_idx in range(seg_masks.shape[-1]):
-            np.save(ct_dir / f"{slice_idx}.npy", seg_masks[..., slice_idx])
 
 
 class NSCLCDataset(Dataset):
@@ -48,6 +15,7 @@ class NSCLCDataset(Dataset):
                  metadata_path=None,
                  ct_ids=None,
                  hu_range=(-1000, 1000),
+                 transform=None,
                  subset=None, train_ratio=0.8):
         if metadata_path:
             with open(metadata_path, "rb") as f:
@@ -73,6 +41,7 @@ class NSCLCDataset(Dataset):
 
             self.cache_metadata(ct_dir, mask_dir, ct_ids, subset)
         self.hu_range = hu_range
+        self.transform = transform
 
     def cache_metadata(self, ct_dir, mask_dir, ct_ids, subset):
         idx_2_ct = {}
@@ -114,11 +83,12 @@ class NSCLCDataset(Dataset):
         ds = pydicom.read_file(dicom_path)
         # convert to HU scale
         ct_slice = apply_modality_lut(ds.pixel_array, ds).astype(np.float32)
-        ct_slice = torch.from_numpy(ct_slice)
-        ct_slice = torch.clamp(ct_slice, *self.hu_range)
-        ct_slice = ct_slice.unsqueeze(0)  # explicit channel dim for convs
-
+        # add explicit channel dim to images
+        ct_slice = np.expand_dims(ct_slice, axis=-1)
         seg_mask = np.load(seg_path)
-        seg_mask = torch.from_numpy(seg_mask)
 
-        return ct_slice, seg_mask
+        sample = {"ct_slice": ct_slice, "seg_mask": seg_mask}
+        if self.transform:
+            sample = self.transform(sample)
+
+        return sample

@@ -1,6 +1,7 @@
 import glob
 
 import numpy as np
+import torch
 
 import pydicom
 from pydicom.pixel_data_handlers.util import apply_modality_lut
@@ -9,8 +10,10 @@ import nibabel as nib
 
 def read_ct_scan(ct_dir, hu_range=None):
     dicom_paths = glob.glob(f"{ct_dir}/*.dcm")
-    dicom_files = sorted([pydicom.read_file(path) for path in dicom_paths],
-                         key=lambda ds: ds.SliceLocation)
+    dicom_files = sorted(
+        [pydicom.read_file(path) for path in dicom_paths],
+        key=lambda ds: ds.SliceLocation,
+    )
     ct_arr = [apply_modality_lut(ds.pixel_array, ds) for ds in dicom_files]
     ct_arr = np.array(ct_arr, dtype=np.float32)
     return ct_arr
@@ -28,6 +31,7 @@ def read_seg_masks(fpath):
     seg_masks = np.ascontiguousarray(seg_masks)
     return seg_masks
 
+
 def read_seg_mask(fpath, slice_idx):
     seg_file = nib.load(fpath)
     seg_mask = seg_file.dataobj[..., slice_idx].astype(np.int64)
@@ -37,3 +41,11 @@ def read_seg_mask(fpath, slice_idx):
     seg_mask[seg_mask > 0] = 1
     seg_mask = np.ascontiguousarray(seg_mask)
     return seg_mask
+
+
+def simple_collate_fn(batch):
+    """Batch samples together from a dict-style dataset
+    """
+    X = torch.stack([sample["ct_slice"] for sample in batch])
+    y = torch.stack([sample["seg_mask"] for sample in batch])
+    return X, y

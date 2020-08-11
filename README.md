@@ -1,7 +1,9 @@
-lung_seg
+Lung segmentation
 ==============================
 
-Lung segmentation in CT scans
+Using DL to segment lungs in CT scans
+
+TODO: document data loading pipeline
 
 Project Organization
 ------------

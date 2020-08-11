@@ -2,11 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.utils.data import DataLoader, Subset
 import pytorch_lightning as pl
 
-from src.data import NSCLCDataset
-from src.models.eval import dice_coeff_from_logits
+from src.metrics import dice_coeff_from_logits
 
 
 class DoubleConv(nn.Module):
@@ -78,13 +76,6 @@ class UNet(pl.LightningModule):
 
         self.loss_fn = nn.CrossEntropyLoss()
 
-        # TODO: find a way to put this outside of modeling code
-        train_ds = NSCLCDataset(metadata_path="data/processed/NSCLC-Radiomics_train_metadata.pkl")
-        #return train_loader
-        # using small subsets for now
-        self.train_sm = Subset(train_ds, range(5000))
-        self.val_sm = Subset(train_ds, range(5000, 6000))
-
     def forward(self, x):
         x = self.first_conv(x)
         skip_xs = [x]
@@ -100,7 +91,7 @@ class UNet(pl.LightningModule):
         return x
 
     def configure_optimizers(self):
-        opt = optim.SGD(self.parameters(), lr=1e-3)
+        opt = optim.Adam(self.parameters(), lr=1e-3)
         return opt
 
     def training_step(self, batch, batch_idx):
@@ -116,7 +107,7 @@ class UNet(pl.LightningModule):
                 "log": {"train_loss": loss, "train_dice_coeff": dice}}
 
     def validation_step(self, batch, batch_idx):
-        # reuse forward pass from traning step
+        # reuse forward pass from training step
         res = self.training_step(batch, batch_idx)
         return res
 
@@ -127,17 +118,3 @@ class UNet(pl.LightningModule):
         return {"val_loss": avg_val_loss,
                 "progress_bar": {"avg_val_dice_coeff": avg_dice_coeff},
                 "log": {"val_loss": avg_val_loss, "val_dice_coeff": avg_dice_coeff}}
-
-    def train_dataloader(self):
-        loader = DataLoader(self.train_sm, batch_size=4,
-                            num_workers=4,
-                            shuffle=True,
-                            pin_memory=True)
-        return loader
-
-    def val_dataloader(self):
-        loader = DataLoader(self.val_sm, batch_size=4,
-                            num_workers=4,
-                            shuffle=False,
-                            pin_memory=True)
-        return loader
