@@ -1,5 +1,6 @@
+import torch
+from torch.utils.data import DataLoader, Subset, random_split
 import pytorch_lightning as pl
-from torch.utils.data import DataLoader, Subset
 
 from src.data import NSCLCDataset, simple_collate_fn
 from src.preprocess import DEFAULT_TRANSFORM
@@ -8,24 +9,21 @@ from src.models import UNet
 
 # hyperparams
 batch_size = 16
+train_ratio = 0.8
 
 # preprocessing routine
 transform = DEFAULT_TRANSFORM
 
 # data prep
-train_ds = NSCLCDataset(
-    metadata_path="data/processed/NSCLC-Radiomics_train_metadata.pkl",
-    transform=transform,
-)
-val_ds = NSCLCDataset(
-    metadata_path="data/processed/NSCLC-Radiomics_val_metadata.pkl",
-    transform=transform,
-)
-# using smaller subsets for now
-train_ds_sm = Subset(train_ds, range(5000))
-val_ds_sm = Subset(train_ds, range(5000, 6000))
+full_ds = NSCLCDataset(metadata_path="data/processed/NSCLC-Radiomics_metadata.csv",
+                       transform=transform)
+# train/val split
+num_train = int(train_ratio * len(full_ds))
+num_val = len(full_ds) - num_train
+train_ds, val_ds = random_split(full_ds, lengths=[num_train, num_val],
+                                generator=torch.Generator().manual_seed(25))
 train_loader = DataLoader(
-    train_ds_sm,
+    train_ds,
     batch_size=batch_size,
     collate_fn=simple_collate_fn,
     num_workers=4,
@@ -33,7 +31,7 @@ train_loader = DataLoader(
     pin_memory=True,
 )
 val_loader = DataLoader(
-    val_ds_sm,
+    val_ds,
     batch_size=batch_size,
     collate_fn=simple_collate_fn,
     num_workers=4,

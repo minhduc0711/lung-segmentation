@@ -77,6 +77,8 @@ target/
 
 # exclude data from source control by default
 /data/
+# but keep some metadata files
+!/data/processed/*.csv
 
 # Mac OS-specific storage files
 .DS_Store

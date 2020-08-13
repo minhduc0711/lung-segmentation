@@ -21,6 +21,7 @@ def plot_batch(
 ):
     num_shown = nrows * ncols
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize)
+    fig.patch.set_facecolor((1, 1, 1))
 
     H, W = X_batch.shape[2:]
     for ax, ct_slice, gt_mask in zip(
@@ -44,6 +45,7 @@ def plot_true_vs_pred(X, y_true, y_pred, figsize=None, mask_alpha=0.15):
     if not figsize:
         figsize = (10, 5 * batch_size)
     fig, axes = plt.subplots(nrows=batch_size, ncols=2, figsize=figsize)
+    fig.patch.set_facecolor((1, 1, 1))
     for i, ax_pair in enumerate(axes):
         ct_slice = normalize(X[i].numpy().squeeze())
         ax0, ax1 = ax_pair

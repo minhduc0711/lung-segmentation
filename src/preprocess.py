@@ -48,11 +48,11 @@ class Rescale:
         return {"ct_slice": ct_slice, "seg_mask": seg_mask}
 
 
-class ClipHU:
-    """Clip HU values in CT scans."""
-    def __init__(self, center, width):
-        self.low = center - width / 2
-        self.high = center + width / 2
+class Clip:
+    """Clip pixel values"""
+    def __init__(self, low, high):
+        self.low = low
+        self.high = high
 
     def __call__(self, sample):
         ct_slice, seg_mask = sample["ct_slice"], sample["seg_mask"]
@@ -85,8 +85,7 @@ class Normalize:
 
 DEFAULT_TRANSFORM = transforms.Compose([
     Rescale(256),
-    ClipHU(center=0, width=2000),
-    #GlobalStandardize(),
+    Clip(-1000, 1000),
     ToTensor(),
     Normalize(mean=[0.], std=[1000.]),
 ])
