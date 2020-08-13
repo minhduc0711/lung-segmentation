@@ -8,11 +8,16 @@ pydicom==2.0.0
 # everyone's favourites
 matplotlib==3.2.2
 numpy==1.18.5
+pandas==1.1.0
 
 # neural nets training
 tensorboard==2.3.0
-torch==1.6.0
-torchvision==0.7.0
+-f https://download.pytorch.org/whl/torch_stable.html
+torch==1.6.0+cpu
+torchvision==0.7.0+cpu 
+# with gpu support 
+#torch==1.6.0
+#torchvision==0.7.0
 torchsummary==1.5.1
 pytorch-lightning==0.8.5
 
