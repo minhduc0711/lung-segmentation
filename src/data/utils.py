@@ -19,33 +19,33 @@ def read_ct_scan(ct_dir, hu_range=None):
     return ct_arr
 
 
-def read_seg_masks(fpath):
+def read_masks(fpath):
     seg_file = nib.load(fpath)
-    seg_masks = seg_file.dataobj[:].astype(np.float32)
+    masks = seg_file.dataobj[:].astype(np.float32)
     # move z dim to 1st dim
-    seg_masks = seg_masks.transpose(2, 0, 1)
+    masks = masks.transpose(2, 0, 1)
     # match mask to CT image orientation
-    seg_masks = np.rot90(seg_masks, k=1, axes=(1, 2))
+    masks = np.rot90(masks, k=1, axes=(1, 2))
     # remove left, right lung information
-    seg_masks[seg_masks > 0] = 1.0
-    seg_masks = np.ascontiguousarray(seg_masks)
-    return seg_masks
+    masks[masks > 0] = 1.0
+    masks = np.ascontiguousarray(masks)
+    return masks
 
 
-def read_seg_mask(fpath, slice_idx):
+def read_mask(fpath, slice_idx):
     seg_file = nib.load(fpath)
-    seg_mask = seg_file.dataobj[..., slice_idx].astype(np.int64)
+    mask = seg_file.dataobj[..., slice_idx].astype(np.int64)
     # match mask to CT image orientation
-    seg_mask = np.rot90(seg_mask, k=1)
+    mask = np.rot90(mask, k=1)
     # remove left, right lung information
-    seg_mask[seg_mask > 0] = 1
-    seg_mask = np.ascontiguousarray(seg_mask)
-    return seg_mask
+    mask[mask > 0] = 1
+    mask = np.ascontiguousarray(mask)
+    return mask
 
 
 def simple_collate_fn(batch):
     """Batch samples together from a dict-style dataset
     """
-    X = torch.stack([sample["ct_slice"] for sample in batch])
-    y = torch.stack([sample["seg_mask"] for sample in batch])
+    X = torch.stack([sample["img"] for sample in batch])
+    y = torch.stack([sample["mask"] for sample in batch])
     return X, y

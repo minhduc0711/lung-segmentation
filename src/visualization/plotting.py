@@ -24,18 +24,18 @@ def plot_batch(
     fig.patch.set_facecolor((1, 1, 1))
 
     H, W = X_batch.shape[2:]
-    for ax, ct_slice, gt_mask in zip(
+    for ax, img, mask in zip(
         axes.flatten(), X_batch[:num_shown], y_batch[:num_shown]
     ):
-        ct_slice = ct_slice.numpy().copy().squeeze()
-        ct_slice -= ct_slice.min()  # shift to range (0, inf)
-        ct_slice /= ct_slice.max()  # normalize
+        img = img.numpy().copy().squeeze()
+        img -= img.min()  # shift to range (0, inf)
+        img /= img.max()  # normalize
 
         color_mask = np.zeros((H, W, 3), dtype=np.uint8)
-        color_mask[gt_mask == 1.0] = mask_color
+        color_mask[mask == 1.0] = mask_color
 
         ax.axis("off")
-        ax.imshow(ct_slice, cmap="gray")
+        ax.imshow(img, cmap="gray")
         ax.imshow(color_mask, alpha=mask_alpha)
 
 
@@ -47,7 +47,7 @@ def plot_true_vs_pred(X, y_true, y_pred, figsize=None, mask_alpha=0.15):
     fig, axes = plt.subplots(nrows=batch_size, ncols=2, figsize=figsize)
     fig.patch.set_facecolor((1, 1, 1))
     for i, ax_pair in enumerate(axes):
-        ct_slice = normalize(X[i].numpy().squeeze())
+        img = normalize(X[i].numpy().squeeze())
         ax0, ax1 = ax_pair
         if i == 0:
             ax0.set_title("ground-truth")
@@ -56,11 +56,11 @@ def plot_true_vs_pred(X, y_true, y_pred, figsize=None, mask_alpha=0.15):
         gt_mask = np.zeros((H, W, 3), dtype=np.uint8)
         gt_mask[y_true[i] == 1] = (0, 255, 0)
         ax0.axis("off")
-        ax0.imshow(ct_slice, cmap="gray")
+        ax0.imshow(img, cmap="gray")
         ax0.imshow(gt_mask, alpha=mask_alpha)
 
         pred_mask = np.zeros((H, W, 3), dtype=np.uint8)
         pred_mask[y_pred[i] == 1] = (255, 0, 0)
         ax1.axis("off")
-        ax1.imshow(ct_slice, cmap="gray")
+        ax1.imshow(img, cmap="gray")
         ax1.imshow(pred_mask, alpha=mask_alpha)

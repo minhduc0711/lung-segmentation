@@ -25,12 +25,12 @@ for ct_id in tqdm(ct_ids, desc="CT scan"):
     seg_path = glob.glob(f"{str(src_dir)}/{ct_id}/*.nii.gz")[0]
     seg_file = nib.load(seg_path)
 
-    seg_masks = np.array(seg_file.dataobj, dtype=np.int64)
+    masks = np.array(seg_file.dataobj, dtype=np.int64)
     # match mask to CT image orientation
-    seg_masks = np.rot90(seg_masks, k=1)
+    masks = np.rot90(masks, k=1)
     # remove left, right lung information
-    seg_masks[seg_masks > 0] = 1
+    masks[masks > 0] = 1
 
     # Save each slice in an individual file
-    for slice_idx in range(seg_masks.shape[-1]):
-        np.save(ct_dir / f"{slice_idx}.npy", seg_masks[..., slice_idx])
+    for slice_idx in range(masks.shape[-1]):
+        np.save(ct_dir / f"{slice_idx}.npy", masks[..., slice_idx])

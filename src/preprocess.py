@@ -8,10 +8,10 @@ class ToTensor:
     """Convert ndarrays in sample to Tensors."""
 
     def __call__(self, sample):
-        ct_slice, seg_mask = sample["ct_slice"], sample["seg_mask"]
-        ct_slice = torch.from_numpy(ct_slice).permute(2, 0, 1)
-        seg_mask = torch.from_numpy(seg_mask)
-        return {"ct_slice": ct_slice, "seg_mask": seg_mask}
+        img, mask = sample["img"], sample["mask"]
+        img = torch.from_numpy(img).permute(2, 0, 1)
+        mask = torch.from_numpy(mask)
+        return {"img": img, "mask": mask}
 
 
 class Rescale:
@@ -28,8 +28,8 @@ class Rescale:
         self.output_size = output_size
 
     def __call__(self, sample):
-        ct_slice, seg_mask = sample["ct_slice"], sample["seg_mask"]
-        h, w = ct_slice.shape[:2]
+        img, mask = sample["img"], sample["mask"]
+        h, w = img.shape[:2]
         if isinstance(self.output_size, int):
             if h > w:
                 new_h, new_w = self.output_size * h / w, self.output_size
@@ -40,12 +40,12 @@ class Rescale:
 
         new_h, new_w = int(new_h), int(new_w)
 
-        ct_slice = resize(ct_slice, (new_h, new_w), anti_aliasing=True)
+        img = resize(img, (new_h, new_w), anti_aliasing=True)
         # nearest-neighbor interpolation for masks
-        seg_mask = seg_mask.astype(np.bool)
-        seg_mask = resize(seg_mask, (new_h, new_w)).astype(np.int64)
+        mask = mask.astype(np.bool)
+        mask = resize(mask, (new_h, new_w)).astype(np.int64)
 
-        return {"ct_slice": ct_slice, "seg_mask": seg_mask}
+        return {"img": img, "mask": mask}
 
 
 class Clip:
@@ -55,20 +55,20 @@ class Clip:
         self.high = high
 
     def __call__(self, sample):
-        ct_slice, seg_mask = sample["ct_slice"], sample["seg_mask"]
-        ct_slice = np.clip(ct_slice, self.low, self.high)
-        return {"ct_slice": ct_slice, "seg_mask": seg_mask}
+        img, mask = sample["img"], sample["mask"]
+        img = np.clip(img, self.low, self.high)
+        return {"img": img, "mask": mask}
 
 
 class GlobalStandardize:
     """Convert pixels value range -> (-1, 1)"""
     def __call__(self, sample):
-        ct_slice, seg_mask = sample["ct_slice"], sample["seg_mask"]
+        img, mask = sample["img"], sample["mask"]
 
-        mu, sigma = ct_slice.mean(), ct_slice.std()
-        ct_slice = (ct_slice - mu) / sigma
+        mu, sigma = img.mean(), img.std()
+        img = (img - mu) / sigma
 
-        return {"ct_slice": ct_slice, "seg_mask": seg_mask}
+        return {"img": img, "mask": mask}
 
 
 class Normalize:
@@ -77,10 +77,10 @@ class Normalize:
         self.std = np.array(std)
 
     def __call__(self, sample):
-        ct_slice, seg_mask = sample["ct_slice"], sample["seg_mask"]
-        ct_slice = transforms.Normalize(self.mean, self.std)(ct_slice)
+        img, mask = sample["img"], sample["mask"]
+        img = transforms.Normalize(self.mean, self.std)(img)
 
-        return {"ct_slice": ct_slice, "seg_mask": seg_mask}
+        return {"img": img, "mask": mask}
 
 
 DEFAULT_TRANSFORM = transforms.Compose([

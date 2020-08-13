@@ -71,13 +71,13 @@ class NSCLCDataset(Dataset):
 
         dicom_file = pydicom.read_file(img_path)
         # convert to HU scale
-        ct_slice = apply_modality_lut(dicom_file.pixel_array, dicom_file)
-        ct_slice = ct_slice.astype(np.float32)
+        img = apply_modality_lut(dicom_file.pixel_array, dicom_file)
+        img = img.astype(np.float32)
         # add explicit channel dim to images
-        ct_slice = np.expand_dims(ct_slice, axis=-1)
-        seg_mask = np.load(mask_path)
+        img = np.expand_dims(img, axis=-1)
+        mask = np.load(mask_path)
 
-        sample = {"ct_slice": ct_slice, "seg_mask": seg_mask}
+        sample = {"img": img, "mask": mask}
         if self.transform:
             sample = self.transform(sample)
 
