@@ -1,3 +1,4 @@
+import os
 import glob
 
 import numpy as np
@@ -49,3 +50,8 @@ def simple_collate_fn(batch):
     X = torch.stack([sample["img"] for sample in batch])
     y = torch.stack([sample["mask"] for sample in batch])
     return X, y
+
+
+def get_common_ids(*dirs):
+    res = set.intersection(*[set(os.listdir(d)) for d in dirs])
+    return sorted(list(res))

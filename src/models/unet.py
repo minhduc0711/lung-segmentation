@@ -104,7 +104,7 @@ class UNet(pl.LightningModule):
         pbar = {"dice_coeff": dice}
 
         return {"loss": loss, "progress_bar": pbar,
-                "log": {"train_loss": loss, "train_dice_coeff": dice}}
+                "log": {"loss/train": loss, "dice_coeff/train": dice}}
 
     def validation_step(self, batch, batch_idx):
         # reuse forward pass from training step
@@ -117,4 +117,8 @@ class UNet(pl.LightningModule):
                                        for res in val_step_outputs]).mean()
         return {"val_loss": avg_val_loss,
                 "progress_bar": {"avg_val_dice_coeff": avg_dice_coeff},
-                "log": {"val_loss": avg_val_loss, "val_dice_coeff": avg_dice_coeff}}
+                "log": {
+                    "loss/val": avg_val_loss,
+                    "dice_coeff/val": avg_dice_coeff,
+                    "dice_coeff_val": avg_dice_coeff  # avoid slash in ckpt file name
+                }}
