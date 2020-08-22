@@ -16,41 +16,41 @@ if __name__ == "__main__":
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--input-size", type=int, default=512)
     parser.add_argument("--patience", type=int, default=5)
+    parser.add_argument("--checkpoint", type=str)
     args = parser.parse_args()
 
     # preprocessing routine
     transform_list = []
     if args.input_size != 512:
         transform_list.append(Rescale(args.input_size))
-    transform_list.extend([
-        Clip(-1000, 1000),
-        ToTensor(),
-        Normalize(mean=[0.0], std=[1000.0]),
-    ])
+    transform_list.extend(
+        [Clip(-1000, 1000), ToTensor(), Normalize(mean=[0.0], std=[1000.0]),]
+    )
     transform = transforms.Compose(transform_list)
 
     # data prep
     # train/val split
-    ct_ids = get_common_ids("data/raw/NSCLC-Radiomics/",
-                            "data/processed/NSCLC_ground_truths/")
+    ct_ids = get_common_ids(
+        "data/raw/NSCLC-Radiomics/", "data/processed/NSCLC_ground_truths/"
+    )
     train_ratio = 0.7
     val_ratio = 0.2
     num_train_scans = int(len(ct_ids) * train_ratio)
     num_val_scans = int(len(ct_ids) * val_ratio)
 
     train_scans = ct_ids[:num_train_scans]
-    val_scans = ct_ids[num_train_scans:num_train_scans+num_val_scans]
-    test_scans = ct_ids[num_train_scans+num_val_scans:]
+    val_scans = ct_ids[num_train_scans : num_train_scans + num_val_scans]
+    test_scans = ct_ids[num_train_scans + num_val_scans :]
 
     train_ds = NSCLCDataset(
         metadata_path="data/processed/NSCLC-Radiomics_metadata_v2.csv",
         transform=transform,
-        ct_ids=train_scans
+        ct_ids=train_scans,
     )
     val_ds = NSCLCDataset(
         metadata_path="data/processed/NSCLC-Radiomics_metadata_v2.csv",
         transform=transform,
-        ct_ids=val_scans
+        ct_ids=val_scans,
     )
 
     train_loader = DataLoader(
@@ -74,13 +74,14 @@ if __name__ == "__main__":
     ckpt_path = f"models/unet-{args.input_size}"
     ckpt_path += "-{epoch}-{dice_coeff_val:.3f}"
     ckpt_callback = ModelCheckpoint(
-        filepath=ckpt_path, monitor="dice_coeff_val", save_top_k=2, mode="max"
+        filepath=ckpt_path,
+        monitor="dice_coeff_val",
+        mode="max",
+        save_top_k=3,
+        save_last=True,
     )
     early_stop_callback = EarlyStopping(
-        monitor="dice_coeff_val",
-        patience=args.patience,
-        mode="max",
-        verbose=True,
+        monitor="dice_coeff_val", mode="max", patience=args.patience, verbose=True,
     )
 
     trainer = pl.Trainer(
@@ -88,6 +89,7 @@ if __name__ == "__main__":
         gpus=[0],
         checkpoint_callback=ckpt_callback,
         early_stop_callback=early_stop_callback,
+        resume_from_checkpoint=args.checkpoint,
     )
     net = UNet(in_c=1, num_classes=2)
 

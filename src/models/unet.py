@@ -39,15 +39,14 @@ class UpsampleDoubleConv(nn.Module):
         super(UpsampleDoubleConv, self).__init__()
         # Halving no. out channels, since we will
         # concat inputs from the skip connection
-        self.upsample = nn.ConvTranspose2d(in_c, in_c // 2,
-                                           kernel_size=2, stride=2)
+        self.upsample = nn.ConvTranspose2d(in_c, in_c // 2, kernel_size=2, stride=2)
         self.double_conv = DoubleConv(in_c, out_c)
 
     def forward(self, x, skip_x):
         x = self.upsample(x)
         # cropping
-        dh = (skip_x.shape[2] - x.shape[2])
-        dw = (skip_x.shape[3] - x.shape[3])
+        dh = skip_x.shape[2] - x.shape[2]
+        dw = skip_x.shape[3] - x.shape[3]
         # note: pad=(padding_left,padding_right,padding_top,padding_bottom)
         x = F.pad(x, pad=[dw // 2, dw - dw // 2, dh // 2, dh - dh // 2])
         x = torch.cat([skip_x, x], dim=1)
@@ -103,22 +102,43 @@ class UNet(pl.LightningModule):
         dice = dice_coeff_from_logits(logits, y)
         pbar = {"dice_coeff": dice}
 
-        return {"loss": loss, "progress_bar": pbar,
-                "log": {"loss/train": loss, "dice_coeff/train": dice}}
+        return {
+            "loss": loss,
+            "progress_bar": pbar,
+            "log": {"loss/train": loss, "dice_coeff/train": dice},
+        }
 
     def validation_step(self, batch, batch_idx):
         # reuse forward pass from training step
         res = self.training_step(batch, batch_idx)
         return res
 
-    def validation_epoch_end(self, val_step_outputs):
+    def validation_epoch_end(self, val_step_outputs, return_logs=True):
         avg_val_loss = torch.tensor([res["loss"] for res in val_step_outputs]).mean()
-        avg_dice_coeff = torch.tensor([res["progress_bar"]["dice_coeff"]
-                                       for res in val_step_outputs]).mean()
-        return {"val_loss": avg_val_loss,
-                "progress_bar": {"avg_val_dice_coeff": avg_dice_coeff},
-                "log": {
-                    "loss/val": avg_val_loss,
-                    "dice_coeff/val": avg_dice_coeff,
-                    "dice_coeff_val": avg_dice_coeff  # avoid slash in ckpt file name
-                }}
+        avg_dice_coeff = torch.tensor(
+            [res["progress_bar"]["dice_coeff"] for res in val_step_outputs]
+        ).mean()
+
+        res = {
+            "val_loss": avg_val_loss,
+            "progress_bar": {"avg_val_dice_coeff": avg_dice_coeff},
+        }
+        if return_logs:
+            res["log"] = {
+                "loss/val": avg_val_loss,
+                "dice_coeff/val": avg_dice_coeff,
+                "dice_coeff_val": avg_dice_coeff,  # avoid slash in ckpt file name
+            }
+        return res
+
+    def test_step(self, batch, batch_idx):
+        # reuse forward pass from training step
+        res = self.training_step(batch, batch_idx)
+        return res
+
+    def test_epoch_end(self, test_step_outputs):
+        # reuse valid stat accumulation
+        res = self.validation_epoch_end(test_step_outputs, return_logs=False)
+        test_dsc = res["progress_bar"]["avg_val_dice_coeff"]
+        print(test_dsc)
+        return res

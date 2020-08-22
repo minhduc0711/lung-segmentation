@@ -58,6 +58,7 @@ target/
 
 # DotEnv configuration
 .env
+.env.leave
 
 # Database
 *.db

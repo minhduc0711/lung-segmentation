@@ -1,3 +1,4 @@
+import torch
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -23,11 +24,13 @@ def plot_batch(
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize)
     fig.patch.set_facecolor((1, 1, 1))
 
-    H, W = X_batch.shape[2:]
+    H, W = X_batch.shape[-2:]
     for ax, img, mask in zip(
         axes.flatten(), X_batch[:num_shown], y_batch[:num_shown]
     ):
-        img = img.numpy().copy().squeeze()
+        if isinstance(img, torch.Tensor):
+            img = img.numpy()
+        img = img.copy().squeeze()
         img -= img.min()  # shift to range (0, inf)
         img /= img.max()  # normalize
 
@@ -44,6 +47,8 @@ def plot_true_vs_pred(X, y_true, y_pred, figsize=None, mask_alpha=0.15):
     batch_size = X.shape[0]
     if not figsize:
         figsize = (10, 5 * batch_size)
+    else:
+        figsize = (figsize[0], figsize[1] * batch_size)
     fig, axes = plt.subplots(nrows=batch_size, ncols=2, figsize=figsize)
     fig.patch.set_facecolor((1, 1, 1))
     for i, ax_pair in enumerate(axes):
