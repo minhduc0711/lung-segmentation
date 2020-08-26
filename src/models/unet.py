@@ -94,7 +94,7 @@ class UNet(pl.LightningModule):
         return opt
 
     def training_step(self, batch, batch_idx):
-        X, y = batch
+        X, y = batch["img"], batch["mask"]
         logits = self(X)
         loss = self.loss_fn(logits, y)
 

@@ -1,8 +1,11 @@
 import glob
 import os
+from pathlib import Path
+from typing import List
 
 import numpy as np
 import pandas as pd
+import nibabel as nib
 import pydicom
 from pydicom.pixel_data_handlers.util import apply_modality_lut
 from tqdm import tqdm
@@ -18,7 +21,6 @@ class NSCLCDataset(Dataset):
         mask_dir=None,
         metadata_path=None,
         ct_ids=None,
-        hu_range=(-1000, 1000),
         transform=None,
     ):
         if metadata_path:
@@ -27,12 +29,11 @@ class NSCLCDataset(Dataset):
             assert (
                 ct_dir is not None and mask_dir is not None
             ), "You have to provide either metadata_path or ct_dir & mask_dir"
-            if not ct_ids:
+            if ct_ids is not None:
                 # only include CT scans with corresponding masks available
-                ct_ids = get_common_ids(ct_dir, mask_dir) 
+                ct_ids = get_common_ids(ct_dir, mask_dir)
 
             self.generate_metadata(ct_dir, mask_dir, ct_ids)
-        self.hu_range = hu_range
         self.transform = transform
 
     def load_metadata(self, metadata_path, ct_ids):
@@ -43,7 +44,6 @@ class NSCLCDataset(Dataset):
         return df
 
     def generate_metadata(self, ct_dir, mask_dir, ct_ids):
-        cumu_num_slices = 0
         rows = []  # build a DataFrame from a list of dicts is omega faster
 
         for ct_id in tqdm(sorted(ct_ids), desc="Caching CT scans metadata"):
@@ -60,10 +60,9 @@ class NSCLCDataset(Dataset):
                 mask_path = mask_path_str.format(mask_dir, ct_id, slice_idx)
                 mask_path = os.path.abspath(mask_path)
 
-                rows.append(
-                    {"ct_id": ct_id, "img_path": img_path, "mask_path": mask_path}
-                )
-            cumu_num_slices += num_slices
+                rows.append({"ct_id": ct_id,
+                             "img_path": img_path,
+                             "mask_path": mask_path})
 
         # save metadata dict to disk
         dataset_name = os.path.basename(os.path.normpath(ct_dir))
@@ -83,11 +82,65 @@ class NSCLCDataset(Dataset):
         img = apply_modality_lut(dicom_file.pixel_array, dicom_file)
         img = img.astype(np.float32)
         # add explicit channel dim to images
-        img = np.expand_dims(img, axis=-1)
+        img = np.expand_dims(img, axis=0)
         mask = np.load(mask_path)
 
         sample = {"img": img, "mask": mask}
-        if self.transform:
+        if self.transform is not None:
+            sample = self.transform(sample)
+
+        return sample
+
+
+class KmaderDataset(Dataset):
+    """
+    Lung segmentation datasetdownloaded from
+    https://www.kaggle.com/kmader/finding-lungs-in-ct-data.
+    which is used in BCDU-net paper.
+    """
+    def __init__(self,
+                 raw_path: str,
+                 ct_ids: List[str] = None,
+                 transform=None):
+        def extract_id(p):
+            return p.name.split(".")[0][-4:]
+
+        raw_path = Path(raw_path)
+        img_paths = list(raw_path.glob("IMG*"))
+        if ct_ids is not None:
+            img_paths = [p for p in img_paths
+                         if extract_id(p) in ct_ids]
+        img_paths.sort(key=extract_id)
+
+        imgs = []
+        masks = []
+        for img_path in tqdm(img_paths, desc="Loading CT scans"):
+            mask_path = str(img_path).replace("IMG", "MASK")
+            img_file = nib.load(img_path)
+            mask_file = nib.load(mask_path)
+
+            img_arr = np.array(img_file.dataobj, dtype=np.float32)
+            mask_arr = np.array(mask_file.dataobj, dtype=np.int64)
+            # convert masks to values in {0, 1}
+            mask_arr[mask_arr > 0] = 1
+
+            imgs.append(img_arr)
+            masks.append(mask_arr)
+
+        assert len(imgs) != 0, f"No data were found in {str(raw_path)}"
+        self.imgs = np.concatenate(imgs)
+        self.masks = np.concatenate(masks)
+        self.transform = transform
+
+    def __len__(self):
+        return self.imgs.shape[0]
+
+    def __getitem__(self, idx):
+        img, mask = self.imgs[idx], self.masks[idx]
+        img = np.expand_dims(img, axis=0)
+
+        sample = {"img": img, "mask": mask}
+        if self.transform is not None:
             sample = self.transform(sample)
 
         return sample

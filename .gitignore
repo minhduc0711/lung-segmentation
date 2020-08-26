@@ -92,4 +92,8 @@ target/
 .mypy_cache/
 
 # training logs
+logs/
 lightning_logs/
+
+# saved model checkpoints
+models/

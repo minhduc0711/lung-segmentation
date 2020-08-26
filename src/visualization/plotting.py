@@ -22,11 +22,15 @@ def plot_batch(
 ):
     num_shown = nrows * ncols
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize)
+    if isinstance(axes, np.ndarray):
+        axes = axes.flatten()
+    else:
+        axes = [axes]
     fig.patch.set_facecolor((1, 1, 1))
 
-    H, W = X_batch.shape[-2:]
+    H, W = y_batch.shape[-2:]
     for ax, img, mask in zip(
-        axes.flatten(), X_batch[:num_shown], y_batch[:num_shown]
+        axes, X_batch[:num_shown], y_batch[:num_shown]
     ):
         if isinstance(img, torch.Tensor):
             img = img.numpy()

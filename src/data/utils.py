@@ -44,7 +44,7 @@ def read_mask(fpath, slice_idx):
     return mask
 
 
-def simple_collate_fn(batch):
+def unpack_batch(batch):
     """Batch samples together from a dict-style dataset
     """
     X = torch.stack([sample["img"] for sample in batch])

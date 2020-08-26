@@ -9,6 +9,7 @@ pydicom==2.0.0
 matplotlib==3.2.2
 numpy==1.18.5
 pandas==1.1.0
+scikit-image==0.17.2
 
 # neural nets training
 tensorboard==2.3.0
