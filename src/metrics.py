@@ -28,7 +28,9 @@ def dice_coeff_vectorized(input, target):
     inter = (input * target).sum(dim=1)
     union = input.sum(dim=1) + target.sum(dim=1)
     dice_coeffs = (2 * inter + eps) / (union + eps)
-    return dice_coeffs.mean()
+    avg_dice = dice_coeffs.mean()
+    #return dice_coeffs
+    return avg_dice
 
 
 def dice_coeff_from_logits(logits, target):

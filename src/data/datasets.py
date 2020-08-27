@@ -2,6 +2,7 @@ import glob
 import os
 from pathlib import Path
 from typing import List
+import time
 
 import numpy as np
 import pandas as pd
@@ -14,7 +15,7 @@ from torch.utils.data import Dataset
 from .utils import get_common_ids
 
 
-class NSCLCDataset(Dataset):
+class PlethoraDataset(Dataset):
     def __init__(
         self,
         ct_dir=None,
@@ -29,10 +30,9 @@ class NSCLCDataset(Dataset):
             assert (
                 ct_dir is not None and mask_dir is not None
             ), "You have to provide either metadata_path or ct_dir & mask_dir"
-            if ct_ids is not None:
+            if ct_ids is None:
                 # only include CT scans with corresponding masks available
                 ct_ids = get_common_ids(ct_dir, mask_dir)
-
             self.generate_metadata(ct_dir, mask_dir, ct_ids)
         self.transform = transform
 
@@ -56,19 +56,21 @@ class NSCLCDataset(Dataset):
             # store a dict of:
             # sample_idx -> (CT slice idx, CT slice dicom path, seg mask path)
             for slice_idx in range(num_slices):
-                img_path = os.path.abspath(dicom_paths[slice_idx])
+                img_path = os.path.realpath(dicom_paths[slice_idx])
                 mask_path = mask_path_str.format(mask_dir, ct_id, slice_idx)
-                mask_path = os.path.abspath(mask_path)
+                mask_path = os.path.realpath(mask_path)
 
                 rows.append({"ct_id": ct_id,
                              "img_path": img_path,
                              "mask_path": mask_path})
-
         # save metadata dict to disk
+        cols = ["ct_id", "img_path", "mask_path"]
+        self.metadata = pd.DataFrame(rows, columns=cols)
+
         dataset_name = os.path.basename(os.path.normpath(ct_dir))
-        self.metadata = pd.DataFrame(rows, columns=["img_path", "mask_path"])
-        self.metadata.to_csv(f"data/processed/{dataset_name}_metadata.csv",
-                             index=False)
+        timestamp = int(time.time())
+        save_path = f"data/processed/{dataset_name}_metadata_{timestamp}.csv"
+        self.metadata.to_csv(save_path, index=False)
 
     def __len__(self):
         return len(self.metadata)

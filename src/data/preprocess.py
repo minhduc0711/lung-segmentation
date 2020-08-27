@@ -110,6 +110,7 @@ class ExtractMaskAroundLungs:
         sample["mask"] = mask_around_lungs
         return sample
 
+
 def extract_mask_lungs(mask_around_lungs):
     if isinstance(mask_around_lungs, torch.Tensor):
         mask_around_lungs = mask_around_lungs.numpy()
@@ -117,6 +118,7 @@ def extract_mask_lungs(mask_around_lungs):
     mask_body = binary_fill_holes(mask_around_lungs).astype(np.int64)
     mask_lungs = mask_body - mask_around_lungs
     return mask_lungs
+
 
 class ExtractMaskLungs:
     """Extract lungs mask from around-lungs masks."""

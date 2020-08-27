@@ -20,7 +20,6 @@ def plot_batch(
     mask_color=(255, 0, 0),
     mask_alpha=0.15,
 ):
-    num_shown = nrows * ncols
     fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=figsize)
     if isinstance(axes, np.ndarray):
         axes = axes.flatten()
@@ -29,9 +28,9 @@ def plot_batch(
     fig.patch.set_facecolor((1, 1, 1))
 
     H, W = y_batch.shape[-2:]
-    for ax, img, mask in zip(
-        axes, X_batch[:num_shown], y_batch[:num_shown]
-    ):
+    for i, ax in enumerate(axes):
+        img = X_batch[i]
+        mask = y_batch[i]
         if isinstance(img, torch.Tensor):
             img = img.numpy()
         img = img.copy().squeeze()
@@ -47,7 +46,8 @@ def plot_batch(
 
 
 def plot_true_vs_pred(X, y_true, y_pred, figsize=None, mask_alpha=0.15):
-    H, W = X.shape[2:]
+    H, W = y_true.shape[-2:]
+
     batch_size = X.shape[0]
     if not figsize:
         figsize = (10, 5 * batch_size)
@@ -55,6 +55,8 @@ def plot_true_vs_pred(X, y_true, y_pred, figsize=None, mask_alpha=0.15):
         figsize = (figsize[0], figsize[1] * batch_size)
     fig, axes = plt.subplots(nrows=batch_size, ncols=2, figsize=figsize)
     fig.patch.set_facecolor((1, 1, 1))
+    axes = axes.reshape(-1, 2)
+
     for i, ax_pair in enumerate(axes):
         img = normalize(X[i].numpy().squeeze())
         ax0, ax1 = ax_pair
