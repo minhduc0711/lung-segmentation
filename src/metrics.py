@@ -29,10 +29,4 @@ def dice_coeff_vectorized(input, target):
     union = input.sum(dim=1) + target.sum(dim=1)
     dice_coeffs = (2 * inter + eps) / (union + eps)
     avg_dice = dice_coeffs.mean()
-    #return dice_coeffs
     return avg_dice
-
-
-def dice_coeff_from_logits(logits, target):
-    input = torch.argmax(logits, dim=1)
-    return dice_coeff_vectorized(input, target)

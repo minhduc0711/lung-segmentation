@@ -21,6 +21,7 @@ torchvision==0.7.0+cpu
 #torchvision==0.7.0
 torchsummary==1.5.1
 pytorch-lightning==0.9.0
+torchtest==0.5
 
 # external requirements
 click
