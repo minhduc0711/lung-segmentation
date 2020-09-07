@@ -6,7 +6,8 @@ from torchvision import transforms
 import pytorch_lightning as pl
 
 from .datasets import PlethoraDataset, KmaderDataset
-from .preprocess import Clip, ToTensor, Normalize, Resize
+from .preprocess import Clip, ToTensor, Normalize, Resize, \
+    ExtractMaskAroundLungs
 from .utils import get_common_ids
 
 
@@ -17,6 +18,7 @@ class BaseImageSegmentationDataModule(pl.LightningDataModule):
         img_size: Union[int, Tuple[int, int]] = None,
         clip_low: float = None,
         clip_high: float = None,
+        invert_lungs: bool = False,
         pin_memory: bool = True,
         num_workers: int = 4,
     ):
@@ -31,6 +33,8 @@ class BaseImageSegmentationDataModule(pl.LightningDataModule):
             ToTensor(),
             Normalize(low=0, high=1),
         ]
+        if invert_lungs:
+            transform_list.insert(1, ExtractMaskAroundLungs())
         if img_size is not None and \
                 img_size != 512 and img_size != (512, 512):
             transform_list.insert(0, Resize(img_size))

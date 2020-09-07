@@ -45,7 +45,8 @@ def plot_batch(
         ax.imshow(color_mask, alpha=mask_alpha)
 
 
-def plot_true_vs_pred(X, y_true, y_pred, figsize=None, mask_alpha=0.15):
+def plot_true_vs_pred(X, y_true, y_pred, figsize=None, mask_alpha=0.15,
+                      subplot_labels=None):
     H, W = y_true.shape[-2:]
 
     batch_size = X.shape[0]
@@ -66,12 +67,13 @@ def plot_true_vs_pred(X, y_true, y_pred, figsize=None, mask_alpha=0.15):
 
         gt_mask = np.zeros((H, W, 3), dtype=np.uint8)
         gt_mask[y_true[i] == 1] = (0, 255, 0)
-        ax0.axis("off")
         ax0.imshow(img, cmap="gray")
         ax0.imshow(gt_mask, alpha=mask_alpha)
 
         pred_mask = np.zeros((H, W, 3), dtype=np.uint8)
         pred_mask[y_pred[i] == 1] = (255, 0, 0)
-        ax1.axis("off")
         ax1.imshow(img, cmap="gray")
         ax1.imshow(pred_mask, alpha=mask_alpha)
+        if subplot_labels is not None:
+            ax1.set_ylabel(subplot_labels[i], rotation='horizontal',
+                           fontweight="bold")

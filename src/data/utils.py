@@ -44,14 +44,6 @@ def read_mask(fpath, slice_idx):
     return mask
 
 
-def unpack_batch(batch):
-    """Batch samples together from a dict-style dataset
-    """
-    X = torch.stack([sample["img"] for sample in batch])
-    y = torch.stack([sample["mask"] for sample in batch])
-    return X, y
-
-
 def get_common_ids(*dirs):
     res = set.intersection(*[set(os.listdir(d)) for d in dirs])
     return sorted(list(res))

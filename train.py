@@ -65,8 +65,9 @@ if __name__ == "__main__":
     logger = TensorBoardLogger(save_dir="logs", name=exp_name,
                                version=args.exp_version)
     # the 2nd string's formatting is handled by lightning
+    # TODO: fix this when the filepath issue is resolved: https://github.com/PyTorchLightning/pytorch-lightning/issues/3254
     ckpt_path = f"{logger.log_dir}/ckpts/" + \
-        "{epoch}-{val_checkpoint_on:.3f}"
+        "{epoch}-{dice_coeff_val:.3f}"
     ckpt_callback = ModelCheckpoint(
         monitor="val_checkpoint_on",
         filepath=ckpt_path,
@@ -76,7 +77,7 @@ if __name__ == "__main__":
     )
     # metric to monitor is defined in the LightningModule subclass
     early_stop_callback = EarlyStopping(
-        mode="max", patience=args.patience, min_delta=0.1, verbose=True,
+        mode="max", patience=args.patience, verbose=True,
     )
 
     distributed_backend = None

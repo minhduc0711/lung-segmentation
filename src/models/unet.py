@@ -120,6 +120,8 @@ class UNet(pl.LightningModule):
         result.log("loss/val", loss)
         result.log("dice_coeff/val", dsc, prog_bar=True, on_step=False,
                    on_epoch=True, reduce_fx=torch.mean)
+        result.log("dice_coeff_val", dsc, prog_bar=False, on_step=False,
+                   on_epoch=True, reduce_fx=torch.mean)
         return result
 
 
