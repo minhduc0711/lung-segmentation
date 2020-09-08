@@ -1,7 +1,8 @@
+from functools import lru_cache
 import glob
 import os
 from pathlib import Path
-from typing import List
+from typing import List, Union
 import time
 
 import numpy as np
@@ -16,6 +17,9 @@ from .utils import get_common_ids
 
 
 class PlethoraDataset(Dataset):
+    """
+    Dataset URL: https://wiki.cancerimagingarchive.net/pages/viewpage.action?pageId=68551327"
+    """
     def __init__(
         self,
         ct_dir=None,
@@ -63,7 +67,7 @@ class PlethoraDataset(Dataset):
                 rows.append({"ct_id": ct_id,
                              "img_path": img_path,
                              "mask_path": mask_path})
-        # save metadata dict to disk
+        # save metadata to disk
         cols = ["ct_id", "img_path", "mask_path"]
         self.metadata = pd.DataFrame(rows, columns=cols)
 
@@ -83,10 +87,7 @@ class PlethoraDataset(Dataset):
         # convert to HU scale
         img = apply_modality_lut(dicom_file.pixel_array, dicom_file)
         img = img.astype(np.float32)
-        # add explicit channel dim to images
-        img = np.expand_dims(img, axis=0)
         mask = np.load(mask_path)
-
         sample = {"img": img, "mask": mask}
         if self.transform is not None:
             sample = self.transform(sample)
@@ -96,9 +97,8 @@ class PlethoraDataset(Dataset):
 
 class KmaderDataset(Dataset):
     """
-    Lung segmentation datasetdownloaded from
-    https://www.kaggle.com/kmader/finding-lungs-in-ct-data.
-    which is used in BCDU-net paper.
+    Dataset URL: https://www.kaggle.com/kmader/finding-lungs-in-ct-data.
+    Used in BCDU-net paper.
     """
     def __init__(self,
                  raw_path: str,
@@ -139,10 +139,76 @@ class KmaderDataset(Dataset):
 
     def __getitem__(self, idx):
         img, mask = self.imgs[idx], self.masks[idx]
-        img = np.expand_dims(img, axis=0)
 
         sample = {"img": img, "mask": mask}
         if self.transform is not None:
             sample = self.transform(sample)
 
         return sample
+
+
+class Covid19Dataset(Dataset):
+    """
+    Dataset URL: https://zenodo.org/record/3757476#.Xpz8OcgzZPY
+
+    This dataset is only used for testing purposes at the moment,
+    so random sample access is super slow.
+    """
+    def __init__(self,
+                 ct_dir: Union[str, Path],
+                 mask_dir: Union[str, Path],
+                 ct_ids=None,
+                 transform=None):
+        avail_ct_ids = set(os.listdir(ct_dir))
+        avail_mask_ids = set(os.listdir(mask_dir))
+        diff_ids = (avail_ct_ids - avail_mask_ids).union(
+            avail_mask_ids - avail_mask_ids)
+        assert len(diff_ids) == 0, \
+            f"Found difference in CT and mask dirs: {diff_ids}"
+
+        ct_dir = Path(ct_dir)
+        mask_dir = Path(mask_dir)
+
+        rows = []
+        for mask_path in sorted(mask_dir.iterdir()):
+            ct_id = mask_path.stem.split(".")[0]
+            if ct_ids is not None and ct_id not in ct_ids:
+                continue
+            mask_file = nib.load(mask_path)
+            num_slices = mask_file.dataobj.shape[-1]
+            for i in range(num_slices):
+                rows.append({"slice_idx": i,
+                             "ct_id": ct_id,
+                             "img_path": str(ct_dir / mask_path.name),
+                             "mask_path": str(mask_path)})
+        self.metadata = pd.DataFrame(rows, columns=list(rows[0].keys()))
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.metadata)
+
+    def __getitem__(self, idx):
+        row = self.metadata.iloc[idx]
+        slice_idx, img_path, mask_path = \
+            row["slice_idx"], row["img_path"], row["mask_path"]
+        imgs = self.load_nifti_arr(img_path, dtype=np.float32)
+        masks = self.load_nifti_arr(mask_path, dtype=np.int64,
+                                    is_mask=True)
+
+        sample = {"img": imgs[slice_idx], "mask": masks[slice_idx]}
+        if self.transform:
+            sample = self.transform(sample)
+        return sample
+
+    @lru_cache(maxsize=4)
+    def load_nifti_arr(self, path: Union[str, Path],
+                       dtype=np.float32,
+                       is_mask: bool = False):
+        nifti_file = nib.load(path)
+        arr = np.array(nifti_file.dataobj)
+        arr = np.rot90(arr, k=1)
+        arr = arr.transpose(2, 0, 1)
+        if is_mask:
+            arr[arr > 0] = 1
+        arr = np.ascontiguousarray(arr, dtype=dtype)
+        return arr

@@ -1,3 +1,5 @@
+from typing import Tuple, Union
+
 import torch
 import numpy as np
 from scipy.ndimage.morphology import binary_opening, binary_fill_holes
@@ -23,23 +25,19 @@ class Resize:
             to output_size keeping aspect ratio the same.
     """
 
-    def __init__(self, output_size):
-        assert isinstance(output_size, (int, tuple))
-        self.output_size = output_size
+    def __init__(self,
+                 output_size: Union[int, Tuple[int, int]]):
+        if isinstance(output_size, int):
+            self.output_size = (output_size, output_size)
+        else:
+            self.output_size = output_size
 
     def __call__(self, sample):
         img, mask = sample["img"], sample["mask"]
-        h, w = img.shape[:2]
-        if isinstance(self.output_size, int):
-            if h > w:
-                new_h, new_w = self.output_size * h / w, self.output_size
-            else:
-                new_h, new_w = self.output_size, self.output_size * w / h
-        else:
-            new_h, new_w = self.output_size
-
-        new_h, new_w = int(new_h), int(new_w)
-
+        h, w = img.shape[-2:]
+        if self.output_size == (h, w):
+            return sample
+        new_h, new_w = int(self.output_size[0]), int(self.output_size[1])
         img = resize(img, (new_h, new_w), anti_aliasing=True)
         # nearest-neighbor interpolation for masks
         mask = mask.astype(np.bool)

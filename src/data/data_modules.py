@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
 import pytorch_lightning as pl
 
-from .datasets import PlethoraDataset, KmaderDataset
+from .datasets import PlethoraDataset, KmaderDataset, Covid19Dataset
 from .preprocess import Clip, ToTensor, Normalize, Resize, \
     ExtractMaskAroundLungs
 from .utils import get_common_ids
@@ -15,7 +15,7 @@ class BaseImageSegmentationDataModule(pl.LightningDataModule):
     def __init__(
         self,
         batch_size: int,
-        img_size: Union[int, Tuple[int, int]] = None,
+        img_size: Union[int, Tuple[int, int]] = 512,
         clip_low: float = None,
         clip_high: float = None,
         invert_lungs: bool = False,
@@ -29,22 +29,21 @@ class BaseImageSegmentationDataModule(pl.LightningDataModule):
         self.num_workers = num_workers
 
         transform_list = [
+            Resize(img_size),
             Clip(clip_low, clip_high),
             ToTensor(),
+            transforms.Lambda(lambda sample: dict(sample,
+                                                  img=sample["img"].unsqueeze(0))),
             Normalize(low=0, high=1),
         ]
         if invert_lungs:
-            transform_list.insert(1, ExtractMaskAroundLungs())
-        if img_size is not None and \
-                img_size != 512 and img_size != (512, 512):
-            transform_list.insert(0, Resize(img_size))
-            self.dims = (
-                (1, img_size, img_size)
-                if isinstance(img_size, int)
-                else (1, img_size[0], img_size[1])
-            )
-        else:
-            self.dims = (1, 512, 512)
+            # this has to be placed after clipping
+            transform_list.insert(2, ExtractMaskAroundLungs())
+        self.dims = (
+            (1, img_size, img_size)
+            if isinstance(img_size, int)
+            else (1, img_size[0], img_size[1])
+        )
         self.transform = transforms.Compose(transform_list)
 
     def train_dataloader(self):
@@ -148,3 +147,26 @@ class KmaderDataModule(BaseImageSegmentationDataModule):
                 ct_ids=["0059"],
                 transform=self.transform
             )
+
+
+class Covid19DataModule(BaseImageSegmentationDataModule):
+    RAW_CT_SCAN_DIR = "data/raw/COVID-19-CT-Seg_20cases/ct_scans/"
+    RAW_MASK_DIR = "data/raw/COVID-19-CT-Seg_20cases/lung_masks/"
+
+    def __init__(self, *args, **kwargs):
+        super(Covid19DataModule, self).__init__(*args, **kwargs)
+        self.num_classes = 2
+
+    def setup(self, stage: Optional[str] = None):
+        if stage == "fit":
+            raise NotImplementedError("Train/val is not supported yet")
+        if stage == "test" or stage is None:
+            self.test_ds = Covid19Dataset(ct_dir=self.RAW_CT_SCAN_DIR,
+                                          mask_dir=self.RAW_MASK_DIR,
+                                          transform=self.transform)
+
+    def train_dataloader(self):
+        raise NotImplementedError("Train/val is not supported yet")
+
+    def val_dataloader(self):
+        raise NotImplementedError("Train/val is not supported yet")
