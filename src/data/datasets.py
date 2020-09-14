@@ -64,16 +64,15 @@ class PlethoraDataset(Dataset):
                 mask_path = mask_path_str.format(mask_dir, ct_id, slice_idx)
                 mask_path = os.path.realpath(mask_path)
 
-                rows.append({"ct_id": ct_id,
+                rows.append({"slice_idx": slice_idx,
+                             "ct_id": ct_id,
                              "img_path": img_path,
                              "mask_path": mask_path})
-        # save metadata to disk
-        cols = ["ct_id", "img_path", "mask_path"]
-        self.metadata = pd.DataFrame(rows, columns=cols)
+        self.metadata = pd.DataFrame(rows, columns=rows[0].keys())
 
-        dataset_name = os.path.basename(os.path.normpath(ct_dir))
+        # save metadata to disk
         timestamp = int(time.time())
-        save_path = f"data/processed/{dataset_name}_metadata_{timestamp}.csv"
+        save_path = f"data/processed/plethora_metadata_{timestamp}.csv"
         self.metadata.to_csv(save_path, index=False)
 
     def __len__(self):
@@ -88,7 +87,10 @@ class PlethoraDataset(Dataset):
         img = apply_modality_lut(dicom_file.pixel_array, dicom_file)
         img = img.astype(np.float32)
         mask = np.load(mask_path)
-        sample = {"img": img, "mask": mask}
+        sample = {"img": img,
+                  "mask": mask,
+                  "ct_id": row["ct_id"],
+                  "slice_idx": row["slice_idx"]}
         if self.transform is not None:
             sample = self.transform(sample)
 
@@ -181,7 +183,7 @@ class Covid19Dataset(Dataset):
                              "ct_id": ct_id,
                              "img_path": str(ct_dir / mask_path.name),
                              "mask_path": str(mask_path)})
-        self.metadata = pd.DataFrame(rows, columns=list(rows[0].keys()))
+        self.metadata = pd.DataFrame(rows, columns=rows[0].keys())
         self.transform = transform
 
     def __len__(self):
@@ -189,13 +191,13 @@ class Covid19Dataset(Dataset):
 
     def __getitem__(self, idx):
         row = self.metadata.iloc[idx]
-        slice_idx, img_path, mask_path = \
-            row["slice_idx"], row["img_path"], row["mask_path"]
-        imgs = self.load_nifti_arr(img_path, dtype=np.float32)
-        masks = self.load_nifti_arr(mask_path, dtype=np.int64,
-                                    is_mask=True)
+        imgs = self.load_nifti_arr(row["img_path"], dtype=np.float32)
+        masks = self.load_nifti_arr(row["mask_path"], dtype=np.int64, is_mask=True)
 
-        sample = {"img": imgs[slice_idx], "mask": masks[slice_idx]}
+        sample = {"img": imgs[row["slice_idx"]],
+                  "mask": masks[row["slice_idx"]],
+                  "ct_id": row["ct_id"],
+                  "slice_idx": row["slice_idx"]}
         if self.transform:
             sample = self.transform(sample)
         return sample

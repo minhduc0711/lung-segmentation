@@ -1,3 +1,4 @@
+import os
 from typing import Union, Tuple, Optional
 
 import torch
@@ -161,9 +162,15 @@ class Covid19DataModule(BaseImageSegmentationDataModule):
         if stage == "fit":
             raise NotImplementedError("Train/val is not supported yet")
         if stage == "test" or stage is None:
+
+            # ignore pre-normalized ct scans
+            ct_ids = os.listdir(self.RAW_CT_SCAN_DIR)
+            ct_ids = sorted([os.path.basename(ct_id).split(".")[0] for ct_id in ct_ids])
+            ct_ids = [ct_id for ct_id in ct_ids if ct_id.find("radio") == -1]
             self.test_ds = Covid19Dataset(ct_dir=self.RAW_CT_SCAN_DIR,
                                           mask_dir=self.RAW_MASK_DIR,
-                                          transform=self.transform)
+                                          transform=self.transform,
+                                          ct_ids=ct_ids)
 
     def train_dataloader(self):
         raise NotImplementedError("Train/val is not supported yet")

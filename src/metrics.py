@@ -19,8 +19,9 @@ def dice_coeff(input, target):
     return s / batch_size
 
 
-def dice_coeff_vectorized(input, target, reduce_fn=torch.mean):
-    eps = 1e-4
+def dice_coeff_vectorized(input, target,
+                          reduce_fn=None,
+                          eps=1e-4):
     batch_size = input.shape[0]
     input = input.float().reshape(batch_size, -1)
     target = target.float().reshape(batch_size, -1)

@@ -5,7 +5,7 @@ import torch.optim as optim
 import pytorch_lightning as pl
 
 from src.metrics import dice_coeff_vectorized
-
+from src.losses import SoftDiceLoss
 
 class DoubleConv(nn.Module):
     def __init__(self, in_c, out_c):
@@ -54,7 +54,8 @@ class UpsampleDoubleConv(nn.Module):
 
 
 class UNet(pl.LightningModule):
-    def __init__(self, in_c, num_classes):
+    def __init__(self, in_c, num_classes,
+                 loss_fn=None):
         super(UNet, self).__init__()
         self.save_hyperparameters()
         self.example_input_array = torch.zeros(1, 1, 512, 512)
@@ -74,7 +75,7 @@ class UNet(pl.LightningModule):
         ])
         self.final_conv = nn.Conv2d(64, num_classes, kernel_size=1)
 
-        self.loss_fn = nn.CrossEntropyLoss()
+        self.loss_fn = loss_fn
 
     def forward(self, x):
         x = self.first_conv(x)
@@ -95,13 +96,16 @@ class UNet(pl.LightningModule):
         return opt
 
     def forward_pass(self, batch):
+        if self.loss_fn is None:
+            raise RuntimeError("loss function was not specified")
+
         X, y = batch["img"], batch["mask"]
         logits = self(X)
         loss = self.loss_fn(logits, y)
 
         # evaluation metric
         pred_masks = torch.argmax(logits, dim=1)
-        dsc = dice_coeff_vectorized(pred_masks, y)
+        dsc = dice_coeff_vectorized(pred_masks, y, reduce_fn=torch.mean)
 
         return loss, dsc
 

@@ -1,23 +1,22 @@
 import argparse as ap
+import os
+import yaml
 
-import torch
-from torchvision import transforms
-
+import torch.nn as nn
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
 
 from src.data import PlethoraDataModule, KmaderDataModule
 from src.models import UNet
+from src.losses import SoftDiceLoss
 
 
 if __name__ == "__main__":
     parser = ap.ArgumentParser()
 
-    parser.add_argument("--model", type=str, default="unet",
-                        )
-    parser.add_argument("--dataset", type=str, default="plethora",
-                        help="dataset to use, one of ['plethora', 'kmader']")
+    parser.add_argument("--model", type=str, default="unet")
+    parser.add_argument("--dataset", type=str, default="plethora")
 
     parser.add_argument("--epochs", type=int, default=50,
                         help="maximum number of epochs")
@@ -25,6 +24,7 @@ if __name__ == "__main__":
     parser.add_argument("--img-size", type=int, default=512)
     parser.add_argument("--clip-low", type=float, default=-1000)
     parser.add_argument("--clip-high", type=float, default=1000)
+    parser.add_argument("--loss", type=str, default="cross_entropy")
     parser.add_argument("--patience", type=int, default=5)
 
     parser.add_argument("--exp-version", type=int, default=None)
@@ -47,25 +47,38 @@ if __name__ == "__main__":
     elif args.dataset == "kmader":
         data_module = KmaderDataModule(**data_module_args)
     else:
-        raise RuntimeError(f"Unknown dataset: {args.dataset}")
+        raise RuntimeError(f"Unknown dataset: {args.dataset}, can only be one of: [plethora, kmader]")
     data_module.setup("fit")
 
     # make sure that all models on multi gpus have the same weights
     pl.seed_everything(25)
 
-    # train model
+    if args.loss == "cross_entropy":
+        loss_fn = nn.CrossEntropyLoss()
+    elif args.loss == "soft_dice":
+        loss_fn = SoftDiceLoss(data_module.num_classes)
+    else:
+        raise NotImplementedError(f"Unknown loss: {args.loss}, can only be one of: [cross_entropy, soft_dice]")
+
     if args.model == "unet":
         net = UNet(in_c=data_module.dims[0],
-                   num_classes=data_module.num_classes)
+                   num_classes=data_module.num_classes,
+                   loss_fn=loss_fn)
     else:
-        raise RuntimeError("Unknown model: {args.model}")
+        raise RuntimeError("Unknown model: {args.model}, can only be one of: [unet]")
 
     exp_name = f"{args.model}-{args.dataset}-{args.img_size}"
 
     logger = TensorBoardLogger(save_dir="logs", name=exp_name,
                                version=args.exp_version)
-    # the 2nd string's formatting is handled by lightning
-    # TODO: fix this when the filepath issue is resolved: https://github.com/PyTorchLightning/pytorch-lightning/issues/3254
+    # save data-related hyperparams to log dir
+    os.makedirs(logger.log_dir, exist_ok=True)
+    with open(f'{logger.log_dir}/data_hparams.yaml', "w") as f:
+        yaml.dump(data_module_args, f)
+
+    # setup callbacks
+    # note: the 2nd string's formatting is handled by lightning
+    # TODO: fix redundant "dice_coeff_val" when the filepath issue is resolved: https://github.com/PyTorchLightning/pytorch-lightning/issues/3254
     ckpt_path = f"{logger.log_dir}/ckpts/" + \
         "{epoch}-{dice_coeff_val:.3f}"
     ckpt_callback = ModelCheckpoint(

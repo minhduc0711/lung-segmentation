@@ -13,7 +13,9 @@ class ToTensor:
         img, mask = sample["img"], sample["mask"]
         img = torch.from_numpy(img)
         mask = torch.from_numpy(mask)
-        return {"img": img, "mask": mask}
+
+        sample["img"], sample["mask"] = img, mask
+        return sample 
 
 
 class Resize:
@@ -43,7 +45,9 @@ class Resize:
         mask = mask.astype(np.bool)
         mask = resize(mask, (new_h, new_w)).astype(np.int64)
 
-        return {"img": img, "mask": mask}
+        sample["img"], sample["mask"] = img, mask
+
+        return sample
 
 
 class Clip:
@@ -54,21 +58,24 @@ class Clip:
         self.high = high
 
     def __call__(self, sample):
-        img, mask = sample["img"], sample["mask"]
+        img = sample["img"]
         img = np.clip(img, self.low, self.high)
-        return {"img": img, "mask": mask}
+
+        sample["img"] = img
+        return sample
 
 
 class GlobalStandardize:
     """Convert pixels value range -> (-1, 1)"""
 
     def __call__(self, sample):
-        img, mask = sample["img"], sample["mask"]
+        img = sample["img"]
 
         mu, sigma = img.mean(), img.std()
         img = (img - mu) / sigma
+        sample["img"] = img
 
-        return {"img": img, "mask": mask}
+        return sample
 
 
 class Normalize:
@@ -77,14 +84,16 @@ class Normalize:
         self.high = high
 
     def __call__(self, sample):
-        img, mask = sample["img"], sample["mask"]
+        img = sample["img"]
 
         # https://en.wikipedia.org/wiki/Normalization_(image_processing)
         norm_img = img - img.min()
         norm_img *= (self.high - self.low) / (img.max() - img.min())
         norm_img += self.low
 
-        return {"img": norm_img, "mask": mask}
+        sample["img"] = norm_img
+
+        return sample
 
 
 class ExtractMaskAroundLungs:
