@@ -53,17 +53,10 @@ if __name__ == "__main__":
     # make sure that all models on multi gpus have the same weights
     pl.seed_everything(25)
 
-    if args.loss == "cross_entropy":
-        loss_fn = nn.CrossEntropyLoss()
-    elif args.loss == "soft_dice":
-        loss_fn = SoftDiceLoss(data_module.num_classes)
-    else:
-        raise NotImplementedError(f"Unknown loss: {args.loss}, can only be one of: [cross_entropy, soft_dice]")
-
     if args.model == "unet":
         net = UNet(in_c=data_module.dims[0],
                    num_classes=data_module.num_classes,
-                   loss_fn=loss_fn)
+                   loss=args.loss)
     else:
         raise RuntimeError("Unknown model: {args.model}, can only be one of: [unet]")
 
