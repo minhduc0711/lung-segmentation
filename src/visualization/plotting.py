@@ -32,7 +32,7 @@ def plot_batch(
         img = X_batch[i]
         mask = y_batch[i]
         if isinstance(img, torch.Tensor):
-            img = img.numpy()
+            img = img.cpu().numpy()
         img = img.copy().squeeze()
         img -= img.min()  # shift to range (0, inf)
         img /= img.max()  # normalize
@@ -58,8 +58,12 @@ def plot_true_vs_pred(X, y_true, y_pred, figsize=None, mask_alpha=0.15,
     fig.patch.set_facecolor((1, 1, 1))
     axes = axes.reshape(-1, 2)
 
+    X = X.cpu().numpy()
+    y_true = y_true.cpu().numpy()
+    y_pred = y_pred.cpu().numpy()
+
     for i, ax_pair in enumerate(axes):
-        img = normalize(X[i].numpy().squeeze())
+        img = normalize(X[i].squeeze())
         ax0, ax1 = ax_pair
         if i == 0:
             ax0.set_title("ground-truth")
@@ -67,11 +71,13 @@ def plot_true_vs_pred(X, y_true, y_pred, figsize=None, mask_alpha=0.15,
 
         gt_mask = np.zeros((H, W, 3), dtype=np.uint8)
         gt_mask[y_true[i] == 1] = (0, 255, 0)
+        ax0.axis("off")
         ax0.imshow(img, cmap="gray")
         ax0.imshow(gt_mask, alpha=mask_alpha)
 
         pred_mask = np.zeros((H, W, 3), dtype=np.uint8)
         pred_mask[y_pred[i] == 1] = (255, 0, 0)
+        ax1.axis("off")
         ax1.imshow(img, cmap="gray")
         ax1.imshow(pred_mask, alpha=mask_alpha)
         if subplot_labels is not None:

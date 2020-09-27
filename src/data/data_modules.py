@@ -22,6 +22,7 @@ class BaseImageSegmentationDataModule(pl.LightningDataModule):
         invert_lungs: bool = False,
         pin_memory: bool = True,
         num_workers: int = 4,
+        transform=None,
     ):
         super(BaseImageSegmentationDataModule, self).__init__()
 
@@ -29,23 +30,27 @@ class BaseImageSegmentationDataModule(pl.LightningDataModule):
         self.pin_memory = pin_memory
         self.num_workers = num_workers
 
-        transform_list = [
-            Resize(img_size),
-            Clip(clip_low, clip_high),
-            ToTensor(),
-            transforms.Lambda(lambda sample: dict(sample,
-                                                  img=sample["img"].unsqueeze(0))),
-            Normalize(low=0, high=1),
-        ]
-        if invert_lungs:
-            # this has to be placed after clipping
-            transform_list.insert(2, ExtractMaskAroundLungs())
-        self.dims = (
-            (1, img_size, img_size)
-            if isinstance(img_size, int)
-            else (1, img_size[0], img_size[1])
-        )
-        self.transform = transforms.Compose(transform_list)
+        if transform is None:
+            # default transform
+            transform_list = [
+                Resize(img_size),
+                Clip(clip_low, clip_high),
+                ToTensor(),
+                transforms.Lambda(lambda sample: dict(sample,
+                                                      img=sample["img"].unsqueeze(0))),
+                Normalize(low=0, high=1),
+            ]
+            if invert_lungs:
+                # this has to be placed after clipping
+                transform_list.insert(2, ExtractMaskAroundLungs())
+            self.dims = (
+                (1, img_size, img_size)
+                if isinstance(img_size, int)
+                else (1, img_size[0], img_size[1])
+            )
+            self.transform = transforms.Compose(transform_list)
+        else:
+            self.transform = transform
 
     def train_dataloader(self):
         return DataLoader(

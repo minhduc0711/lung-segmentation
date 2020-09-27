@@ -1,4 +1,3 @@
-import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,6 +6,7 @@ import pytorch_lightning as pl
 
 from src.metrics import dice_coeff_vectorized
 from src.losses import SoftDiceLoss
+
 
 class DoubleConv(nn.Module):
     def __init__(self, in_c, out_c):
@@ -45,7 +45,6 @@ class UpsampleDoubleConv(nn.Module):
 
     def forward(self, x, skip_x):
         x = self.upsample(x)
-        # cropping
         dh = skip_x.shape[2] - x.shape[2]
         dw = skip_x.shape[3] - x.shape[3]
         # note: pad=(padding_left,padding_right,padding_top,padding_bottom)
@@ -148,7 +147,7 @@ class UNet(pl.LightningModule):
         result = pl.EvalResult()
         result.log("dice_2d", dsc, prog_bar=True, on_step=True, on_epoch=False)
 
-        # calculate 3D dice coeff
+        # 3D dice coeff
         slice_idxs = batch["slice_idx"]
         split_idx = torch.where(slice_idxs == 0)[0]
         if len(split_idx) > 1:
